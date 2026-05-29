@@ -1,0 +1,6 @@
+{
+  "name": "SaaS Holístico - Technical Blueprint",
+  "description": "Especificação técnica de nível corporativo e protótipo interativo de agendamento para terapeutas holísticos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
