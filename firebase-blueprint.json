@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "therapist": {
+      "title": "Therapist Profile",
+      "description": "Custom contact details and workspace configurations for a therapist",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the therapist" },
+        "specialty": { "type": "string", "description": "The specialty, e.g. Reflexoterapeuta Integrativa" },
+        "phone": { "type": "string", "description": "WhatsApp contact number" },
+        "email": { "type": "string", "description": "Contact and login email" },
+        "instagram": { "type": "string", "description": "Instagram handle" },
+        "workingHours": { "type": "string", "description": "Operation details" },
+        "bio": { "type": "string", "description": "Professional bio description" },
+        "clinicAddress": { "type": "string", "description": "Address of prescription clinic" },
+        "onlineMeetingLink": { "type": "string", "description": "Zoom/Google Meet link for online therapy sessions" }
+      },
+      "required": ["name", "email"]
+    },
+    "appointment": {
+      "title": "Appointment Slot",
+      "description": "An appointment booked by a patient or the therapist",
+      "type": "object",
+      "properties": {
+        "serviceId": { "type": "string" },
+        "therapistId": { "type": "string" },
+        "dateTime": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "patientName": { "type": "string" },
+        "patientWhatsapp": { "type": "string" },
+        "patientEmail": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDENTE", "CONFIRMADO", "CONCLUIDO", "CANCELADO"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["serviceId", "therapistId", "dateTime", "durationMinutes", "patientName", "patientWhatsapp", "patientEmail", "status", "createdAt"]
+    },
+    "blockedSlot": {
+      "title": "Blocked Slot",
+      "description": "A blocked interval on the calendar to prevent booking",
+      "type": "object",
+      "properties": {
+        "therapistId": { "type": "string" },
+        "dateStr": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "required": ["therapistId", "dateStr", "startTime", "endTime"]
+    }
+  },
+  "firestore": {
+    "therapists/{therapistId}": {
+      "schema": "therapist",
+      "description": "Profiles for registered therapists"
+    },
+    "appointments/{appointmentId}": {
+      "schema": "appointment",
+      "description": "Patient booking records"
+    },
+    "blockedSlots/{blockedSlotId}": {
+      "schema": "blockedSlot",
+      "description": "Time buffers blocked by therapists"
+    }
+  }
+}

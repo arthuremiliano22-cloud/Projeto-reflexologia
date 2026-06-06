@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Helper primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    // ------------------ Therapists Profile ------------------
+    function isValidTherapist(data) {
+      return data.keys().hasAll(['name', 'email'])
+        && data.name is string && data.name.size() <= 150
+        && data.email is string && data.email.size() <= 100;
+    }
+    
+    match /therapists/{therapistId} {
+      // Anyone can read therapist profiles (needed for patients viewing the main portal)
+      allow read: if true;
+      // Only the corresponding registered therapist can write to their own profile
+      allow create, update: if isSignedIn() && request.auth.uid == therapistId && isValidTherapist(request.resource.data);
+      allow delete: if false; // Therapist profiles are permanent database fixtures
+    }
+    
+    // ------------------ Appointments ------------------
+    function isValidAppointment(data) {
+      return data.keys().hasAll(['serviceId', 'therapistId', 'dateTime', 'durationMinutes', 'patientName', 'patientWhatsapp', 'patientEmail', 'status', 'createdAt'])
+        && data.serviceId is string && data.serviceId.size() <= 100
+        && data.therapistId is string && data.therapistId.size() <= 128
+        && data.dateTime is string && data.dateTime.size() <= 100
+        && data.durationMinutes is number
+        && data.patientName is string && data.patientName.size() <= 150
+        && data.patientWhatsapp is string && data.patientWhatsapp.size() <= 30
+        && data.patientEmail is string && data.patientEmail.size() <= 100
+        && data.status is string && (data.status == 'PENDENTE' || data.status == 'CONFIRMADO' || data.status == 'CONCLUIDO' || data.status == 'CANCELADO')
+        && data.createdAt is string;
+    }
+    
+    match /appointments/{appointmentId} {
+      // Anyone can fetch schedules to know blocked calendar hours
+      allow list, get: if true;
+      
+      // Anyone (patients) can create a booking with initial state "PENDENTE"
+      allow create: if isValidAppointment(request.resource.data) 
+        && request.resource.data.status == 'PENDENTE';
+        
+      // Only the therapist assigned to the therapistId can confirm/cancel or modify notes
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.therapistId;
+    }
+    
+    // ------------------ Blocked Slots ------------------
+    function isValidBlockedSlot(data) {
+      return data.keys().hasAll(['therapistId', 'dateStr', 'startTime', 'endTime'])
+        && data.therapistId is string && data.therapistId.size() <= 128
+        && data.dateStr is string && data.dateStr.size() <= 15
+        && data.startTime is string && data.startTime.size() <= 10
+        && data.endTime is string && data.endTime.size() <= 10;
+    }
+    
+    match /blockedSlots/{blockedSlotId} {
+      // Anyone can read blocked slots to prevent booking at those times
+      allow list, get: if true;
+      
+      // Only the therapist assigned to therapistId can manage blocked slots
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.therapistId && isValidBlockedSlot(request.resource.data);
+      allow update: if isSignedIn() && request.auth.uid == resource.data.therapistId && request.auth.uid == request.resource.data.therapistId && isValidBlockedSlot(request.resource.data);
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.therapistId;
+    }
+  }
+}
