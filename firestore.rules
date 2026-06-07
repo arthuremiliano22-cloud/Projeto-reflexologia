@@ -58,21 +58,12 @@ service cloud.firestore {
     }
     
     // ------------------ Blocked Slots ------------------
-    function isValidBlockedSlot(data) {
-      return data.keys().hasAll(['therapistId', 'dateStr', 'startTime', 'endTime'])
-        && data.therapistId is string && data.therapistId.size() <= 128
-        && data.dateStr is string && data.dateStr.size() <= 15
-        && data.startTime is string && data.startTime.size() <= 10
-        && data.endTime is string && data.endTime.size() <= 10;
-    }
-    
     match /blockedSlots/{blockedSlotId} {
       // Anyone can read blocked slots to prevent booking at those times
       allow list, get: if true;
       
-      // Only the therapist assigned to therapistId can manage blocked slots
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.therapistId && isValidBlockedSlot(request.resource.data);
-      allow update: if isSignedIn() && request.auth.uid == resource.data.therapistId && request.auth.uid == request.resource.data.therapistId && isValidBlockedSlot(request.resource.data);
+      // Only the authenticated therapist can manage their own blocked slots
+      allow create, update: if isSignedIn() && request.auth.uid == request.resource.data.therapistId;
       allow delete: if isSignedIn() && request.auth.uid == resource.data.therapistId;
     }
   }

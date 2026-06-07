@@ -259,8 +259,18 @@ export default function App() {
   const handleAddBlockedSlot = async (newBlock: BlockedSlot) => {
     try {
       const docRef = doc(collection(db, 'blockedSlots'));
+      
+      // Clean up undefined properties so Firestore doesn't reject the payload
+      const cleanData: any = {};
+      Object.entries(newBlock).forEach(([key, val]) => {
+        if (val !== undefined) {
+          cleanData[key] = val;
+        }
+      });
+
       const blockData = {
-        ...newBlock,
+        ...cleanData,
+        therapistId: auth.currentUser?.uid || cleanData.therapistId || 'therapist-1',
         id: docRef.id
       };
       await setDoc(docRef, blockData);
@@ -286,7 +296,11 @@ export default function App() {
     imtPrice: number,
     imtDuration: number
   ) => {
-    setTherapistContact(contact);
+    setTherapistContact((prev) => ({
+      ...prev,
+      ...contact,
+      id: auth.currentUser?.uid || prev.id || 'therapist-1',
+    }));
     setClinicAddress(address);
     setOnlineMeetingLink(meetingLink);
     setServices((prev) =>
@@ -619,61 +633,12 @@ export default function App() {
                         <span className="text-[10px] font-sans font-black uppercase text-indigo-700 tracking-wider bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">Área Restrita • Com Login</span>
                         <h3 className="text-xl sm:text-2xl font-serif font-black text-warm-950 pt-1.5">Painel Secreto do Terapeuta</h3>
                         <p className="text-sm text-warm-850 leading-relaxed font-sans font-medium">
-                          Acesse ou crie sua conta para gerenciar prontuários, configurar serviços e faturamentos, e ajustar períodos de bloqueio.
+                          Acesse sua conta para gerenciar prontuários, configurar serviços e faturamentos, e ajustar períodos de bloqueio.
                         </p>
                       </div>
 
-                      {/* Login / signup switch tabs */}
-                      <div className="flex border-b border-warm-300 gap-4">
-                        <button
-                          type="button"
-                          onClick={() => { setAuthTab('LOGIN'); setLoginError(null); }}
-                          className={`pb-2.5 text-xs font-sans font-black uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
-                            authTab === 'LOGIN' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-warm-500'
-                          }`}
-                        >
-                          Entrar na Conta
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setAuthTab('REGISTER'); setLoginError(null); }}
-                          className={`pb-2.5 text-xs font-sans font-black uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
-                            authTab === 'REGISTER' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-warm-500'
-                          }`}
-                        >
-                          Criar Nova Conta
-                        </button>
-                      </div>
-
                       {/* Dynamic Auth Forms */}
-                      <form onSubmit={authTab === 'LOGIN' ? handleTherapistLogin : handleTherapistSignup} className="space-y-4 pt-1">
-                        {authTab === 'REGISTER' && (
-                          <>
-                            <div>
-                              <label className="block text-[10px] font-sans font-black text-warm-850 uppercase tracking-wider mb-1.5">Nome Completo</label>
-                              <input 
-                                type="text"
-                                required
-                                value={registerName}
-                                onChange={(e) => setRegisterName(e.target.value)}
-                                placeholder="Insira o seu nome"
-                                className="w-full bg-white border-2 border-warm-300 focus:border-indigo-600 rounded-xl p-3.5 text-xs text-warm-950 font-bold tracking-wide outline-none shadow-3xs transition-all"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-sans font-black text-warm-850 uppercase tracking-wider mb-1.5">Sua Especialidade</label>
-                              <input 
-                                type="text"
-                                required
-                                value={registerSpecialty}
-                                onChange={(e) => setRegisterSpecialty(e.target.value)}
-                                placeholder="Ex: Reflexoterapeuta Integrativa"
-                                className="w-full bg-white border-2 border-warm-300 focus:border-indigo-600 rounded-xl p-3.5 text-xs text-warm-950 font-bold tracking-wide outline-none shadow-3xs transition-all"
-                              />
-                            </div>
-                          </>
-                        )}
-
+                      <form onSubmit={handleTherapistLogin} className="space-y-4 pt-1">
                         <div>
                           <label className="block text-[10px] font-sans font-black text-warm-850 uppercase tracking-wider mb-1.5">E-mail Corporativo</label>
                           <input 

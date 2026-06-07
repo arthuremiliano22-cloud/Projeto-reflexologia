@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Calendar, Clock, User, Phone, Mail, CheckCircle, Video, AlertCircle, Heart, Check, Brain, Sparkles, Instagram, Info } from 'lucide-react';
+import { MapPin, Calendar, Clock, User, Phone, Mail, CheckCircle, Video, AlertCircle, Heart, Check, Brain, Sparkles, Instagram, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Service, Appointment, BlockedSlot, TherapistContact } from '../types';
 import { validateBookingSlot, generateDailyTimeSlots } from '../utils/bookingRules';
 
@@ -35,7 +35,15 @@ export default function PatientPortal({
   therapistContact,
 }: PatientPortalProps) {
   const [selectedService, setSelectedService] = useState<Service>(services[0]);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-05-25'); // Monday (future)
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateStr());
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [activePortalTab, setActivePortalTab] = useState<'BOOKING' | 'CONTACT'>('BOOKING');
   
@@ -47,16 +55,63 @@ export default function PatientPortal({
   // Status feedback
   const [bookingResult, setBookingResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Helper properties for dates
-  const dates = [
-    { dateStr: '2026-05-25', label: 'Segunda', dayNum: 25, formatted: 'Segunda-feira, 25 de Maio' },
-    { dateStr: '2026-05-26', label: 'Terça', dayNum: 26, formatted: 'Terça-feira, 26 de Maio' },
-    { dateStr: '2026-05-27', label: 'Quarta', dayNum: 27, formatted: 'Quarta-feira, 27 de Maio' },
-    { dateStr: '2026-05-28', label: 'Quinta', dayNum: 28, formatted: 'Quinta-feira, 28 de Maio' },
-    { dateStr: '2026-05-29', label: 'Sexta', dayNum: 29, formatted: 'Sexta-feira, 29 de Maio' },
-    { dateStr: '2026-05-30', label: 'Sábado', dayNum: 30, formatted: 'Sábado, 30 de Maio' }, 
-    { dateStr: '2026-05-31', label: 'Domingo', dayNum: 31, formatted: 'Domingo, 31 de Maio' },
+  // Month navigation states (defaults to real current month/year)
+  const [currentMonth, setCurrentMonth] = useState<number>(() => {
+    const d = new Date();
+    return d.getMonth();
+  });
+  const [currentYear, setCurrentYear] = useState<number>(() => {
+    const d = new Date();
+    return d.getFullYear();
+  });
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
+
+  const getDaysInMonth = (year: number, month: number) => {
+    const firstDayIdx = new Date(year, month, 1).getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    
+    const days: Array<{
+      dateStr: string;
+      label: string;
+      dayNum: number;
+      formatted: string;
+      isWeekend: boolean;
+    } | null> = [];
+    
+    // Empty placeholders for alignment in 7-column calendar grid
+    for (let i = 0; i < firstDayIdx; i++) {
+      days.push(null);
+    }
+    
+    const weekdayNamesShort = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const weekdayNamesFull = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    
+    for (let dNum = 1; dNum <= totalDays; dNum++) {
+      const formattedMonth = String(month + 1).padStart(2, '0');
+      const formattedDay = String(dNum).padStart(2, '0');
+      const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
+      
+      const dayOfWeekIdx = new Date(year, month, dNum).getDay();
+      const label = weekdayNamesShort[dayOfWeekIdx];
+      const isWeekend = dayOfWeekIdx === 0 || dayOfWeekIdx === 6;
+      
+      days.push({
+        dateStr,
+        label,
+        dayNum: dNum,
+        formatted: `${weekdayNamesFull[dayOfWeekIdx]}, ${dNum} de ${monthNames[month]} de ${year}`,
+        isWeekend
+      });
+    }
+    
+    return days;
+  };
+
+  const dates = getDaysInMonth(currentYear, currentMonth);
 
   const timeSlots = generateDailyTimeSlots(selectedDate, therapistContact.workingHours);
 
@@ -95,6 +150,7 @@ export default function PatientPortal({
       <button
         key={time}
         onClick={() => {
+          if (!tempValidation.isValid) return; // Prevent selection of manual blocked or booked slots
           setSelectedTime(time);
           setBookingResult(null);
         }}
@@ -194,8 +250,23 @@ export default function PatientPortal({
   };
 
   const getSelectedDateLabel = () => {
-    const dMatch = dates.find(d => d.dateStr === selectedDate);
-    return dMatch ? dMatch.formatted : selectedDate;
+    if (!selectedDate) return '';
+    const parts = selectedDate.split('-');
+    if (parts.length !== 3) return selectedDate;
+    
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    
+    const d = new Date(year, month, day);
+    const weekdayNamesFull = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const monthNamesLocal = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    
+    const originalDayOfWeek = d.getDay();
+    return `${weekdayNamesFull[originalDayOfWeek]}, ${day} de ${monthNamesLocal[month]} de ${year}`;
   };
 
   return (
@@ -460,7 +531,7 @@ export default function PatientPortal({
 
               {/* Passo 2 - Seleção de data */}
               <div id="date-selection-section" className="bg-white p-5 rounded-2xl border border-warm-200 shadow-3xs space-y-4">
-                <div className="flex items-center gap-3 border-b border-warm-101 border-warm-200 pb-3">
+                <div className="flex items-center gap-3 border-b border-warm-200 pb-3">
                   <span className="text-xs bg-terapia-700 text-white font-mono font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0">
                     02
                   </span>
@@ -473,42 +544,194 @@ export default function PatientPortal({
                 </div>
                 
                 <p className="text-[11px] text-amber-900 leading-relaxed -mt-1 font-semibold bg-amber-50/65 p-2.5 rounded-xl border border-amber-250/20 shadow-3xs">
-                  ⚠️ <strong>Calendário Demonstrativo:</strong> Atendemos de segunda a sexta. Fins de semana (sábados e domingos) estão representados em vermelho apenas para certificar o funcionamento das validações operacionais de impedimento automática.
+                  ⚠️ <strong>Calendário Interativo:</strong> Atendemos de segunda a sexta. Fins de semana (sábados e domingos) estão representados em vermelho apenas para certificar o funcionamento das validações operacionais de impedimento automática.
                 </p>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                  {dates.map((d) => {
-                    const isSelected = selectedDate === d.dateStr;
-                    const isWeekend = d.label === 'Sábado' || d.label === 'Domingo';
-                    return (
-                      <button
-                        key={d.dateStr}
-                        onClick={() => {
-                          setSelectedDate(d.dateStr);
-                          setSelectedTime('');
-                          setBookingResult(null);
-                        }}
-                        type="button"
-                        className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all cursor-pointer shadow-3xs hover:-translate-y-0.5 ${
-                          isSelected
-                            ? isReflexologySelected
-                              ? 'bg-emerald-700 border-emerald-850 text-white font-bold ring-2 ring-emerald-100'
-                              : 'bg-indigo-600 border-indigo-750 text-white font-bold ring-2 ring-indigo-100'
-                            : isWeekend
-                            ? 'bg-red-50/80 border-red-200 text-red-800 cursor-not-allowed opacity-80'
-                            : 'bg-warm-100 hover:bg-warm-100/80 border-warm-250 text-warm-950'
-                        }`}
-                      >
-                        <span className={`text-[9px] font-sans font-extrabold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-warm-850'}`}>
-                          {d.label}
-                        </span>
-                        <span className="text-xl font-serif font-black my-1 leading-none">{d.dayNum}</span>
-                        <span className={`text-[8px] font-sans font-extrabold uppercase tracking-widest leading-none ${isSelected ? 'text-white/80' : isWeekend ? 'text-red-700 font-black' : 'text-warm-450'}`}>
-                          {isWeekend ? 'Fechado' : isSelected ? 'Ativo ✓' : 'Escolher'}
-                        </span>
-                      </button>
-                    );
-                  })}
+
+                {/* Calendário Mensal Dinâmico */}
+                <div className="bg-warm-50/50 p-4 border border-warm-200 rounded-2xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let newMonth = currentMonth - 1;
+                        let newYear = currentYear;
+                        if (newMonth < 0) {
+                          newMonth = 11;
+                          newYear -= 1;
+                        }
+                        setCurrentMonth(newMonth);
+                        setCurrentYear(newYear);
+                      }}
+                      className="p-2 border border-warm-200 hover:bg-warm-100 rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center shadow-3xs hover:-translate-y-0.5"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-warm-950" />
+                    </button>
+                    <span className="text-xs sm:text-sm font-sans font-black text-warm-950 tracking-wide uppercase">
+                      {monthNames[currentMonth]} de {currentYear}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let newMonth = currentMonth + 1;
+                        let newYear = currentYear;
+                        if (newMonth > 11) {
+                          newMonth = 0;
+                          newYear += 1;
+                        }
+                        setCurrentMonth(newMonth);
+                        setCurrentYear(newYear);
+                      }}
+                      className="p-2 border border-warm-200 hover:bg-warm-100 rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center shadow-3xs hover:-translate-y-0.5"
+                    >
+                      <ChevronRight className="w-4 h-4 text-warm-950" />
+                    </button>
+                  </div>
+
+                  {/* Dias da Semana */}
+                  <div className="grid grid-cols-7 gap-1 text-center">
+                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((dName) => (
+                      <span key={dName} className="text-[10px] font-sans font-black uppercase text-warm-500 tracking-wider py-1.5">
+                        {dName}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Grade de Dias */}
+                  <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                    {dates.map((d, index) => {
+                      if (d === null) {
+                        return <div key={`empty-${index}`} className="opacity-0 pointer-events-none" />;
+                      }
+                      
+                      const isSelected = selectedDate === d.dateStr;
+                      const isWeekend = d.isWeekend;
+                      const todayDateStr = getTodayDateStr();
+                      const isPastDay = d.dateStr < todayDateStr;
+
+                      // Calculating available slots dynamically based on therapist's working hours, blocked slots and appointments
+                      let freeSlotsCount = 0;
+                      if (!isWeekend && !isPastDay) {
+                        const slots = generateDailyTimeSlots(d.dateStr, therapistContact.workingHours);
+                        for (const slotTime of slots) {
+                          const fullDateTimeStr = `${d.dateStr}T${slotTime}:00.000Z`;
+                          const tempValidation = validateBookingSlot({
+                            proposedDateTimeStr: fullDateTimeStr,
+                            service: selectedService,
+                            existingAppointments,
+                            blockedSlots,
+                            workingHoursStr: therapistContact.workingHours,
+                          });
+                          if (tempValidation.isValid) {
+                            freeSlotsCount++;
+                          }
+                        }
+                      }
+
+                      const isFullyBookedOrBlocked = !isWeekend && !isPastDay && freeSlotsCount === 0;
+
+                      // Dynamic styling based on real-time schedule state
+                      let btnStyles = 'bg-white hover:bg-warm-100/50 border-warm-200 text-warm-950';
+                      let labelText = 'Escolher';
+                      let labelStyles = 'text-warm-450';
+                      let isClickable = true;
+
+                      if (isWeekend) {
+                        btnStyles = 'bg-red-50/50 border-red-100/45 text-red-800 cursor-not-allowed opacity-60';
+                        labelText = 'Fechado';
+                        labelStyles = 'text-red-700/85 font-black';
+                        isClickable = false;
+                      } else if (isPastDay) {
+                        btnStyles = 'bg-warm-100/40 border-warm-200/50 text-warm-400 cursor-not-allowed opacity-50';
+                        labelText = 'Passado';
+                        labelStyles = 'text-warm-400';
+                        isClickable = false;
+                      } else if (isFullyBookedOrBlocked) {
+                        btnStyles = 'bg-amber-50/60 border-amber-200 text-amber-800 cursor-not-allowed opacity-85 shadow-3xs';
+                        labelText = 'Indisponível';
+                        labelStyles = 'text-amber-700 font-black';
+                        isClickable = false;
+                      } else if (isSelected) {
+                        btnStyles = isReflexologySelected
+                          ? 'bg-emerald-700 border-emerald-850 text-white font-bold ring-2 ring-emerald-100'
+                          : 'bg-indigo-600 border-indigo-750 text-white font-bold ring-2 ring-indigo-100';
+                        labelText = 'Ativo ✓';
+                        labelStyles = 'text-white/85 font-black';
+                      } else {
+                        // Regular available day in the future
+                        btnStyles = 'bg-white hover:bg-warm-100/50 border-warm-200 text-warm-950';
+                        labelText = `${freeSlotsCount} ${freeSlotsCount === 1 ? 'vaga' : 'vagas'}`;
+                        labelStyles = isReflexologySelected ? 'text-emerald-700 font-extrabold font-bold' : 'text-indigo-600 font-extrabold font-bold';
+                      }
+
+                      return (
+                        <button
+                          key={d.dateStr}
+                          onClick={() => {
+                            if (!isClickable) return;
+                            setSelectedDate(d.dateStr);
+                            setSelectedTime('');
+                            setBookingResult(null);
+                          }}
+                          type="button"
+                          disabled={!isClickable}
+                          title={
+                            isWeekend 
+                              ? 'Fechado aos finais de semana' 
+                              : isPastDay 
+                              ? 'Este dia já passou' 
+                              : isFullyBookedOrBlocked 
+                              ? 'Nenhum horário livre ou bloqueado pelo terapeuta' 
+                              : `Clique para ver ${freeSlotsCount} horários livres`
+                          }
+                          className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all min-h-[54px] select-none ${
+                            isClickable ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-not-allowed'
+                          } ${btnStyles}`}
+                        >
+                          <span className={`text-[8px] font-sans font-bold leading-none ${isSelected ? 'text-white/80' : 'text-warm-805'}`}>
+                            {d.label}
+                          </span>
+                          <span className="text-xs sm:text-sm font-serif font-black my-1 leading-none">{d.dayNum}</span>
+                          <span className={`text-[7px] font-sans uppercase tracking-tight leading-none ${labelStyles}`}>
+                            {labelText}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Legenda de Disponibilidade do Calendário */}
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-3.5 border-t border-warm-200/60 text-[9px] font-sans font-black uppercase tracking-wider text-warm-700">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-white border border-warm-200 shadow-3xs inline-block"></span>
+                      <span>Disponível ({isReflexologySelected ? 'Verde' : 'Azul'})</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-amber-50/60 border border-amber-200 inline-block"></span>
+                      <span>Lotado / Indisponível</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-red-50/50 border border-red-100/45 inline-block"></span>
+                      <span>Fim de Semana</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-warm-100/40 border border-warm-200/50 inline-block"></span>
+                      <span>Passado</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Selecionada - Informativo */}
+                <div className="mt-2 p-3 bg-warm-50/70 border border-warm-200 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">📅</span>
+                    <div>
+                      <p className="text-[10px] uppercase font-sans font-black text-warm-800 tracking-wider">Dia selecionado para atendimento:</p>
+                      <p className="text-xs font-serif font-black text-warm-950">{getSelectedDateLabel()}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full text-white ${isReflexologySelected ? 'bg-emerald-700' : 'bg-indigo-600'}`}>
+                    Pronto para escolher horário
+                  </span>
                 </div>
               </div>
 

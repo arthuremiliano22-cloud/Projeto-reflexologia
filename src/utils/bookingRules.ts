@@ -47,6 +47,21 @@ export function parseWorkingHours(workingHoursStr?: string): { startHour: number
 }
 
 /**
+ * Helper to guarantee time strings have exactly HH:MM length-5 format with leading zeros.
+ * For example, "8:00" -> "08:00", "12:0" -> "12:00".
+ */
+export function padTimeStr(timeStr: string): string {
+  if (!timeStr) return '00:00';
+  const parts = timeStr.trim().split(':');
+  if (parts.length === 2) {
+    const h = parts[0].padStart(2, '0');
+    const m = parts[1].padStart(2, '0');
+    return `${h}:${m}`;
+  }
+  return timeStr;
+}
+
+/**
  * Validates whether a proposed appointment slot complies with all business rules.
  * Returns an object indicating success or a specific business rule violation message.
  */
@@ -66,7 +81,7 @@ export function validateBookingSlot({
   workingHoursStr?: string;
 }): { isValid: boolean; reason?: string } {
   const date = new Date(proposedDateTimeStr);
-  const now = new Date('2026-05-23T20:52:35Z'); // Keep in sync with user's current system date
+  const now = new Date(); // Keep in sync with real-time current date
 
   // 1. Prevent Past Datetimes
   if (date.getTime() < now.getTime()) {
@@ -130,10 +145,56 @@ export function validateBookingSlot({
     return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
   })();
 
+  const dayOfWeekOfProposed = date.getUTCDay();
+
   for (const block of blockedSlots) {
-    if (block.dateStr === dateStr) {
+    let matchesBlock = false;
+
+    if (block.dateStr) {
+      if (block.dateStr === dateStr) {
+        matchesBlock = true;
+      }
+    } else if (block.startDateStr && block.daysOfWeek && block.daysOfWeek.length > 0) {
+      // Recurring weekdays model within a date range
+      const dateVal = new Date(dateStr + 'T00:00:00Z').getTime();
+      const startVal = new Date(block.startDateStr + 'T00:00:00Z').getTime();
+
+      const afterStart = dateVal >= startVal;
+      let beforeEnd = true;
+      if (block.endDateStr) {
+        const endVal = new Date(block.endDateStr + 'T00:00:00Z').getTime();
+        beforeEnd = dateVal <= endVal;
+      }
+
+      const matchesDayOfWeek = block.daysOfWeek.map(Number).includes(dayOfWeekOfProposed);
+
+      if (afterStart && beforeEnd && matchesDayOfWeek) {
+        matchesBlock = true;
+      }
+    } else if (block.startDateStr) {
+      // General date range block without weekday restriction (or all weekdays)
+      const dateVal = new Date(dateStr + 'T00:00:00Z').getTime();
+      const startVal = new Date(block.startDateStr + 'T00:00:00Z').getTime();
+
+      let withinRange = dateVal >= startVal;
+      if (block.endDateStr) {
+        const endVal = new Date(block.endDateStr + 'T00:00:00Z').getTime();
+        withinRange = withinRange && dateVal <= endVal;
+      }
+
+      if (withinRange) {
+        matchesBlock = true;
+      }
+    }
+
+    if (matchesBlock) {
       // Overlap of time strings
-      if (timeStr < block.endTime && proposedEndStr > block.startTime) {
+      const blockStartClean = padTimeStr(block.startTime);
+      const blockEndClean = padTimeStr(block.endTime);
+      const proposedStartClean = padTimeStr(timeStr);
+      const proposedEndClean = padTimeStr(proposedEndStr);
+
+      if (proposedStartClean < blockEndClean && proposedEndClean > blockStartClean) {
         return {
           isValid: false,
           reason: `Slot bloqueado manualmente pelo terapeuta. Motivo: ${block.reason}`,

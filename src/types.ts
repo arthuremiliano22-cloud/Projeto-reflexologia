@@ -48,7 +48,10 @@ export interface AvailabilityRule {
 export interface BlockedSlot {
   id: string;
   therapistId: string;
-  dateStr: string; // "YYYY-MM-DD"
+  dateStr?: string; // "YYYY-MM-DD" (for single date blocks)
+  startDateStr?: string; // "YYYY-MM-DD"
+  endDateStr?: string; // "YYYY-MM-DD" (optional range limit, empty = indefinite)
+  daysOfWeek?: number[]; // [1, 2] for Monday, Tuesday etc.
   startTime: string; // "HH:MM"
   endTime: string; // "HH:MM"
   reason: string;

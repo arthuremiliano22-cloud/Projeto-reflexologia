@@ -118,12 +118,24 @@ export default function TherapistAdmin({
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [tempNotes, setTempNotes] = useState('');
 
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const [reschedulingId, setReschedulingId] = useState<string | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState('2026-05-25');
+  const [rescheduleDate, setRescheduleDate] = useState(() => getTodayDateStr());
   const [rescheduleTime, setRescheduleTime] = useState('09:00');
 
   // New Blocked slot state
-  const [blockDate, setBlockDate] = useState('2026-05-25');
+  const [blockType, setBlockType] = useState<'SINGLE' | 'RECURRING'>('SINGLE');
+  const [blockDate, setBlockDate] = useState(() => getTodayDateStr());
+  const [blockStartDate, setBlockStartDate] = useState(() => getTodayDateStr());
+  const [blockEndDate, setBlockEndDate] = useState('');
+  const [blockWeekdays, setBlockWeekdays] = useState<number[]>([1, 2]); // default Monday (1) and Tuesday (2) as in the user's example
   const [blockStart, setBlockStart] = useState('12:00');
   const [blockEnd, setBlockEnd] = useState('13:30');
   const [blockReason, setBlockReason] = useState('Intervalo de Almoço do Terapeuta');
@@ -356,20 +368,34 @@ export default function TherapistAdmin({
         <div className="space-y-6">
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-4.5 rounded-2xl border border-warm-200 shadow-xs">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs font-semibold text-warm-855">Selecione o dia para conferência:</span>
-              <select
-                value={selectedDateFilter}
-                onChange={(e) => setSelectedDateFilter(e.target.value)}
-                className="bg-warm-50 hover:bg-warm-100 border border-warm-200 text-warm-955 text-xs rounded-xl p-2.5 px-3.5 focus:outline-none focus:border-terapia-700 outline-none cursor-pointer transition-all"
-              >
-                <option value="all">📅 Ver Todas as Datas</option>
-                <option value="2026-05-25">Segunda-feira (25/Mai)</option>
-                <option value="2026-05-26">Terça-feira (26/Mai)</option>
-                <option value="2026-05-27">Quarta-feira (27/Mai)</option>
-                <option value="2026-05-28">Quinta-feira (28/Mai)</option>
-                <option value="2026-05-29">Sexta-feira (29/Mai)</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="text-xs font-black uppercase text-warm-850 tracking-wider">📅 Visualização da Agenda:</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDateFilter('all')}
+                  className={`py-2 px-4 rounded-xl border text-xs font-sans font-bold transition-all cursor-pointer ${
+                    selectedDateFilter === 'all'
+                      ? 'bg-terapia-700 border-terapia-800 text-white shadow-xs'
+                      : 'bg-warm-50 border-warm-200 text-warm-850 hover:bg-warm-100'
+                  }`}
+                >
+                  📅 Ver Todas as Datas
+                </button>
+
+                <div className="flex items-center gap-2 bg-warm-50 border border-warm-200 rounded-xl px-3.5 py-1.5 focus-within:border-terapia-700 transition-colors">
+                  <span className="text-[10px] font-sans font-black uppercase text-warm-600">Filtrar Dia:</span>
+                  <input
+                    type="date"
+                    value={selectedDateFilter === 'all' ? '' : selectedDateFilter}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedDateFilter(val ? val : 'all');
+                    }}
+                    className="bg-transparent border-none text-xs font-bold font-sans text-warm-955 focus:outline-none outline-none cursor-pointer p-0"
+                  />
+                </div>
+              </div>
             </div>
             <p className="text-xs text-warm-850 font-bold bg-warm-100/60 px-3 py-1.5 rounded-lg border border-warm-200">
               {filteredAppointments.length} horários reservados
@@ -626,14 +652,104 @@ export default function TherapistAdmin({
 
             <div className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-warm-950 mb-1">Data que deseja bloquear</label>
-                <input
-                  type="date"
-                  value={blockDate}
-                  onChange={(e) => setBlockDate(e.target.value)}
-                  className="w-full bg-warm-50/70 border border-warm-200 text-warm-955 p-3 rounded-xl outline-none focus:border-terapia-700 transition-colors"
-                />
+                <label className="block font-semibold text-warm-955 mb-1.5">Tipo de Bloqueio</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBlockType('SINGLE')}
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold text-center transition-all cursor-pointer ${
+                      blockType === 'SINGLE'
+                        ? 'bg-terapia-700 border-terapia-800 text-white shadow-xs'
+                        : 'bg-warm-50/50 border-warm-200 text-warm-850 hover:bg-warm-100/50'
+                    }`}
+                  >
+                    📆 Dia de Agenda Específico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBlockType('RECURRING')}
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold text-center transition-all cursor-pointer ${
+                      blockType === 'RECURRING'
+                        ? 'bg-terapia-700 border-terapia-800 text-white shadow-xs'
+                        : 'bg-warm-50/50 border-warm-200 text-warm-850 hover:bg-warm-100/50'
+                    }`}
+                  >
+                    🔁 Recorrente
+                  </button>
+                </div>
               </div>
+
+              {blockType === 'SINGLE' ? (
+                <div>
+                  <label className="block font-semibold text-warm-950 mb-1">Data que deseja bloquear</label>
+                  <input
+                    type="date"
+                    value={blockDate}
+                    onChange={(e) => setBlockDate(e.target.value)}
+                    className="w-full bg-warm-50/70 border border-warm-200 text-warm-955 p-3 rounded-xl outline-none focus:border-terapia-700 transition-colors"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3 p-3 bg-warm-50/50 border border-warm-150 rounded-xl">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-semibold text-warm-955 mb-1">Data de Início</label>
+                      <input
+                        type="date"
+                        value={blockStartDate}
+                        onChange={(e) => setBlockStartDate(e.target.value)}
+                        className="w-full bg-white border border-warm-200 text-warm-955 p-2 rounded-xl outline-none focus:border-terapia-700 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-warm-955 mb-1">Data de Fim (Opcional)</label>
+                      <input
+                        type="date"
+                        value={blockEndDate}
+                        onChange={(e) => setBlockEndDate(e.target.value)}
+                        placeholder="Até que remova"
+                        className="w-full bg-white border border-warm-200 text-warm-955 p-2 rounded-xl outline-none focus:border-terapia-700 transition-colors"
+                      />
+                      <span className="text-[10px] text-warm-850 mt-1 block leading-tight">Vazio = sem limite ("até remover")</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-warm-955 mb-1.5">Selecione os dias da semana para bloquear</label>
+                    <div className="grid grid-cols-5 gap-1.5 pt-1">
+                      {[
+                        { label: 'Seg', val: 1 },
+                        { label: 'Ter', val: 2 },
+                        { label: 'Qua', val: 3 },
+                        { label: 'Qui', val: 4 },
+                        { label: 'Sex', val: 5 }
+                      ].map((day) => {
+                        const active = blockWeekdays.includes(day.val);
+                        return (
+                          <button
+                            key={day.val}
+                            type="button"
+                            onClick={() => {
+                              if (active) {
+                                setBlockWeekdays(blockWeekdays.filter(d => d !== day.val));
+                              } else {
+                                setBlockWeekdays([...blockWeekdays, day.val].sort());
+                              }
+                            }}
+                            className={`py-1.5 px-0.5 text-center font-bold text-[11px] rounded-lg border transition-all cursor-pointer ${
+                              active
+                                ? 'bg-amber-600 border-amber-800 text-white shadow-3xs font-black'
+                                : 'bg-white border-warm-200 text-warm-850 hover:bg-warm-100/50'
+                            }`}
+                          >
+                            {day.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -672,14 +788,32 @@ export default function TherapistAdmin({
               <button
                 type="button"
                 onClick={() => {
-                  onAddBlockedSlot({
-                    id: `block-${Math.random().toString(36).substring(2, 9)}`,
-                    therapistId: 'therapist-1',
-                    dateStr: blockDate,
-                    startTime: blockStart,
-                    endTime: blockEnd,
-                    reason: blockReason,
-                  });
+                  const therapistId = therapistContact?.id || 'therapist-1';
+                  if (blockType === 'SINGLE') {
+                    onAddBlockedSlot({
+                      id: `block-${Math.random().toString(36).substring(2, 9)}`,
+                      therapistId,
+                      dateStr: blockDate,
+                      startTime: blockStart,
+                      endTime: blockEnd,
+                      reason: blockReason,
+                    });
+                  } else {
+                    if (blockWeekdays.length === 0) {
+                      alert('Por favor, selecione pelo menos um dia da semana para o bloqueio recorrente.');
+                      return;
+                    }
+                    onAddBlockedSlot({
+                      id: `block-${Math.random().toString(36).substring(2, 9)}`,
+                      therapistId,
+                      startDateStr: blockStartDate,
+                      endDateStr: blockEndDate || undefined,
+                      daysOfWeek: blockWeekdays,
+                      startTime: blockStart,
+                      endTime: blockEnd,
+                      reason: blockReason,
+                    });
+                  }
                 }}
                 className="w-full bg-terapia-700 hover:bg-terapia-700/90 text-white font-bold py-3 rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:shadow"
               >
@@ -702,27 +836,56 @@ export default function TherapistAdmin({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {blockedSlots.map((block) => (
-                  <div key={block.id} className="bg-white p-4.5 border border-warm-200 rounded-2xl flex justify-between items-start gap-3 shadow-xs">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-sans font-bold text-terapia-700 bg-terapia-50 px-2.5 py-1 rounded-full border border-terapia-200">
-                        🗓️ {block.dateStr}
-                      </span>
-                      <p className="text-xs font-bold text-warm-950 font-mono pt-2">
-                        Das {block.startTime} às {block.endTime}
-                      </p>
-                      <p className="text-[11px] text-warm-850 font-medium leading-normal">{block.reason}</p>
+                {blockedSlots.map((block) => {
+                  const formatDateBR = (isoDateStr?: string) => {
+                    if (!isoDateStr) return '';
+                    const parts = isoDateStr.split('-');
+                    if (parts.length === 3) {
+                      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    }
+                    return isoDateStr;
+                  };
+
+                  return (
+                    <div key={block.id} className="bg-white p-4 border border-warm-200 rounded-2xl flex justify-between items-start gap-2 shadow-xs hover:border-warm-300 transition-colors">
+                      <div className="space-y-1 min-w-0">
+                        {block.dateStr ? (
+                          <span className="text-[10px] inline-flex items-center gap-1 font-sans font-black text-terapia-700 bg-terapia-50/70 border border-terapia-200 px-2.5 py-1 rounded-full">
+                            🗓️ {formatDateBR(block.dateStr)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] inline-flex flex-col gap-1 items-start">
+                            <span className="bg-amber-100 text-amber-850 px-2 py-0.5 rounded-full font-black text-[8px] uppercase tracking-wider border border-amber-200 shadow-3xs">
+                              🔁 Recorrente
+                            </span>
+                            <span className="font-bold text-warm-950">
+                              {(() => {
+                                const weekdayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                                return block.daysOfWeek ? block.daysOfWeek.map(d => weekdayNames[d]).join(', ') : 'Recorrente';
+                              })()}
+                            </span>
+                            <span className="text-[10px] text-warm-800 font-medium">
+                              Desde {formatDateBR(block.startDateStr)} 
+                              {block.endDateStr ? ` até ${formatDateBR(block.endDateStr)}` : ' (indefinido)'}
+                            </span>
+                          </span>
+                        )}
+                        <p className="text-xs font-bold text-warm-950 font-mono pt-2">
+                          Das {block.startTime} às {block.endTime}
+                        </p>
+                        <p className="text-[11px] text-warm-850 font-medium leading-normal break-words">{block.reason}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteBlockedSlot(block.id)}
+                        className="text-warm-350 hover:text-red-700 transition-all p-1.5 cursor-pointer rounded-lg hover:bg-red-50 shrink-0"
+                        title="Destravar horário"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteBlockedSlot(block.id)}
-                      className="text-warm-350 hover:text-red-700 transition-all p-1.5 cursor-pointer rounded-lg hover:bg-red-50"
-                      title="Destravar horário"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
